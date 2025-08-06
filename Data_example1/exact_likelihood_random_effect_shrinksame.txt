@@ -1,0 +1,320 @@
+model {
+
+  # Historical Data
+  
+	#Block 1: Left Censoring Block
+	for ( i in 1:idxL) {
+	# Pieces of the cumulative hazard function
+		for (k in 1:upper.int.obs[i]){
+			upper.cond[i,k] <- step(R[i] - kappa[k + 1])
+			upper.HH[i,k] <- upper.cond[i ,k] * (kappa[k + 1] - kappa[k]) * exp(alpha[k]) +
+			(1 - upper.cond[i,k] ) * (R[i] - kappa[k]) * exp(alpha[k])
+		}
+
+	# Cumulative hazard function
+	upper.H[i] <- sum(upper.HH[i,1:upper.int.obs[i]])
+	}
+
+	for (i in 1:idxL) {
+		# Linear predictor
+		elinpred[i] <- exp(inprod(beta[ ] , X[i,] ) + mu[i] )
+		# Log-hazard function
+		#logHaz[ i ] <- log(lambda[int.obs[i]] * elinpred[i])
+		# survival function
+		upper.Surv[i] <- exp(-upper.H[i] * elinpred[i])
+		# Definition of the log-likelihood using zeros trick
+		#phi[i] <- 100000 - delta[i] * logHaz[i] - logSurv[i]
+		#phi[i] <- 100000 - log(1-upper.Surv[i])
+		phi[i] <- (1-upper.Surv[i])/100000000000
+		#zeros[i] ~ dpois(phi[i])
+		ones[i] ~ dbern(phi[i])
+	}
+
+	# Block 2: Interval Censoring Block
+	for ( i in idxI[1]:idxI[2]) {
+	# Pieces of the cumulative hazard function
+		for (k in 1: lower.int.obs[i]) {
+			lower.cond[i , k] <- step(L[i] - kappa[k + 1])
+			lower.HH[i,k] <- lower.cond[i ,k] * (kappa[k + 1] - kappa[k]) * exp(alpha[k]) +
+			(1 - lower.cond[i,k] ) * (L[i] - kappa[k]) * exp(alpha[k])
+		}
+
+		for (k in 1:upper.int.obs[i]) {
+			upper.cond[i,k] <- step(R[i] - kappa[k + 1])
+			upper.HH[i,k] <- upper.cond[i ,k] * (kappa[k + 1] - kappa[k]) * exp(alpha[k]) +
+			(1 - upper.cond[i,k] ) * (R[i] - kappa[k]) * exp(alpha[k])
+		}
+	# Cumulative hazard function
+	lower.H[i] <- sum(lower.HH[i,1:lower.int.obs[i]])
+	upper.H[i] <- sum(upper.HH[i,1:upper.int.obs[i]])
+	}
+
+	for (i in idxI[1]:idxI[2]) {
+		# Linear predictor
+		elinpred[i] <- exp(inprod(beta[ ] , X[i,] ) + mu[i] )
+		# Log-hazard function
+		#logHaz[ i ] <- log(lambda[int.obs[i]] * elinpred[i])
+		# survival function
+		lower.Surv[i] <- exp(-lower.H[i] * elinpred[i])
+		upper.Surv[i] <- exp(-upper.H[i] * elinpred[i])
+		# Definition of the log-likelihood using zeros trick
+		#phi[i] <- 100000 - delta[i] * logHaz[i] - logSurv[i]
+		#phi[i] <- 100000 - log(lower.Surv[i] - upper.Surv[i])
+		phi[i] <- (lower.Surv[i] - upper.Surv[i])/100000000000
+		#zeros[i] ~ dpois(phi[i])
+		ones[i] ~ dbern(phi[i])
+	}
+
+
+	#Block 3: Right Censoring Block
+	for ( i in (idxI[2]+1):idxR) {
+	# Pieces of the cumulative hazard function
+		for (k in 1: lower.int.obs[i]) {
+			lower.cond[i , k] <- step(L[i] - kappa[k + 1])
+			lower.HH[i,k] <- lower.cond[i ,k] * (kappa[k + 1] - kappa[k]) * exp(alpha[k]) +
+			(1 - lower.cond[i,k] ) * (L[i] - kappa[k]) * exp(alpha[k])
+		}
+
+	# Cumulative hazard function
+	lower.H[i] <- sum(lower.HH[i,1:lower.int.obs[i]])
+	}
+
+	for (i in (idxI[2]+1):idxR) {
+		# Linear predictor
+		elinpred[i] <- exp(inprod(beta[ ] , X[i,] ) + mu[i] )
+		# Log-hazard function
+		#logHaz[ i ] <- log(lambda[int.obs[i]] * elinpred[i])
+		# survival function
+		lower.Surv[i] <- exp(-lower.H[i] * elinpred[i])
+		# Definition of the log-likelihood using zeros trick
+		#phi[i] <- 100000 - delta[i] * logHaz[i] - logSurv[i]
+		#phi[i] <- 100000 - log(lower.Surv[i])
+		phi[i] <- lower.Surv[i]/100000000000
+		#zeros[i] ~ dpois(phi[i])
+		ones[i] ~ dbern(phi[i])
+	}
+
+
+	#Block 4: Exact Event Block
+	for ( i in (idxR+1):idxE) {
+	# Pieces of the cumulative hazard function
+		for (k in 1: lower.int.obs[i]) {
+			lower.cond[i , k] <- step(L[i] - kappa[k + 1])
+			lower.HH[i,k] <- lower.cond[i ,k] * (kappa[k + 1] - kappa[k]) * exp(alpha[k]) +
+			(1 - lower.cond[i,k] ) * (L[i] - kappa[k]) * exp(alpha[k])
+		}
+
+	# Cumulative hazard function
+	lower.H[i] <- sum(lower.HH[i,1:lower.int.obs[i]])
+	}
+
+	for (i in (idxR+1):idxE) {
+		# Linear predictor
+		elinpred[i] <- exp(inprod(beta[ ] , X[i,] ) + mu[i] )
+		# hazard function
+		haz[i] <- exp(alpha[lower.int.obs[i]]) * elinpred[i]
+		# survival function
+		lower.Surv[i] <- exp(-lower.H[i] * elinpred[i])
+		# Definition of the log-likelihood using zeros trick
+		#phi[i] <- 100000 - delta[i] * logHaz[i] - logSurv[i]
+		#phi[i] <- 100000000000000 - log(haz[i] * lower.Surv[i])
+		phi[i] <- haz[i] * lower.Surv[i]/100000000000
+		#zeros[i] ~ dpois(phi[i])
+		ones[i] ~ dbern(phi[i])
+	}
+
+
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	#Current Trial Data
+	
+		#Block 1: Left Censoring Block
+	for ( i in 1:idxL.C) {
+	# Pieces of the cumulative hazard function
+		for (k in 1:upper.int.obs.C[i]){
+			upper.cond.C[i,k] <- step(R.C[i] - kappa[k + 1])
+			upper.HH.C[i,k] <- upper.cond.C[i ,k] * (kappa[k + 1] - kappa[k]) * exp(alphaC[k]) +
+			(1 - upper.cond.C[i,k] ) * (R.C[i] - kappa[k]) * exp(alphaC[k])
+		}
+
+	# Cumulative hazard function
+	upper.H.C[i] <- sum(upper.HH.C[i,1:upper.int.obs.C[i]])
+	}
+
+	for (i in 1:idxL.C) {
+		# Linear predictor
+		elinpred.C[i] <- exp(inprod(betaC[ ] , X.C[i,] ) + mu.C[i] )
+		# Log-hazard function
+		#logHaz[ i ] <- log(lambda[int.obs[i]] * elinpred[i])
+		# survival function
+		upper.Surv.C[i] <- exp(-upper.H.C[i] * elinpred.C[i])
+		# Definition of the log-likelihood using zeros trick
+		#phi[i] <- 100000 - delta[i] * logHaz[i] - logSurv[i]
+		#phi.C[i] <- 100000 - log(1-upper.Surv.C[i])
+		phi.C[i] <- (1-upper.Surv.C[i])/100000000000
+		#zeros.C[i] ~ dpois(phi.C[i])
+		ones.C[i] ~ dbern(phi.C[i])
+	}
+
+	# Block 2: Interval Censoring Block
+	for ( i in idxI.C[1]:idxI.C[2]) {
+	# Pieces of the cumulative hazard function
+		for (k in 1: lower.int.obs.C[i]) {
+			lower.cond.C[i , k] <- step(L.C[i] - kappa[k + 1])
+			lower.HH.C[i,k] <- lower.cond.C[i ,k] * (kappa[k + 1] - kappa[k]) * exp(alphaC[k]) +
+			(1 - lower.cond.C[i,k] ) * (L.C[i] - kappa[k]) * exp(alphaC[k])
+		}
+
+		for (k in 1:upper.int.obs.C[i]) {
+			upper.cond.C[i,k] <- step(R.C[i] - kappa[k + 1])
+			upper.HH.C[i,k] <- upper.cond.C[i ,k] * (kappa[k + 1] - kappa[k]) * exp(alphaC[k]) +
+			(1 - upper.cond.C[i,k] ) * (R.C[i] - kappa[k]) * exp(alphaC[k])
+		}
+	# Cumulative hazard function
+	lower.H.C[i] <- sum(lower.HH.C[i,1:lower.int.obs.C[i]])
+	upper.H.C[i] <- sum(upper.HH.C[i,1:upper.int.obs.C[i]])
+	}
+
+	for (i in idxI.C[1]:idxI.C[2]) {
+		# Linear predictor
+		elinpred.C[i] <- exp(inprod(betaC[ ] , X.C[i,] ) + mu.C[i])
+		# Log-hazard function
+		#logHaz[ i ] <- log(lambda[int.obs[i]] * elinpred[i])
+		# survival function
+		lower.Surv.C[i] <- exp(-lower.H.C[i] * elinpred.C[i])
+		upper.Surv.C[i] <- exp(-upper.H.C[i] * elinpred.C[i])
+		# Definition of the log-likelihood using zeros trick
+		#phi[i] <- 100000 - delta[i] * logHaz[i] - logSurv[i]
+		#phi.C[i] <- 100000 - log(lower.Surv.C[i] - upper.Surv.C[i])
+		phi.C[i] <- (lower.Surv.C[i] - upper.Surv.C[i])/100000000000
+		#zeros.C[i] ~ dpois(phi.C[i])
+		ones.C[i] ~ dbern(phi.C[i])
+	}
+
+
+	#Block 3: Right Censoring Block
+	for ( i in (idxI.C[2]+1):idxR.C) {
+	# Pieces of the cumulative hazard function
+		for (k in 1: lower.int.obs.C[i]) {
+			lower.cond.C[i , k] <- step(L.C[i] - kappa[k + 1])
+			lower.HH.C[i,k] <- lower.cond.C[i ,k] * (kappa[k + 1] - kappa[k]) * exp(alphaC[k]) +
+			(1 - lower.cond.C[i,k] ) * (L.C[i] - kappa[k]) * exp(alphaC[k])
+		}
+
+	# Cumulative hazard function
+	lower.H.C[i] <- sum(lower.HH.C[i,1:lower.int.obs.C[i]])
+	}
+
+	for (i in (idxI.C[2]+1):idxR.C) {
+		# Linear predictor
+		elinpred.C[i] <- exp(inprod(betaC[ ] , X.C[i,] ) + mu.C[i])
+		# Log-hazard function
+		#logHaz[ i ] <- log(lambda[int.obs[i]] * elinpred[i])
+		# survival function
+		lower.Surv.C[i] <- exp(-lower.H.C[i] * elinpred.C[i])
+		# Definition of the log-likelihood using zeros trick
+		#phi[i] <- 100000 - delta[i] * logHaz[i] - logSurv[i]
+		#phi.C[i] <- 100000 - log(lower.Surv.C[i])
+		phi.C[i] <- lower.Surv.C[i]/100000000000
+		#zeros.C[i] ~ dpois(phi.C[i])
+		ones.C[i] ~ dbern(phi.C[i])
+	}
+
+
+	#Block 4: Exact Event Block
+	for ( i in (idxR.C+1):idxE.C) {
+	# Pieces of the cumulative hazard function
+		for (k in 1: lower.int.obs.C[i]) {
+			lower.cond.C[i , k] <- step(L.C[i] - kappa[k + 1])
+			lower.HH.C[i,k] <- lower.cond.C[i ,k] * (kappa[k + 1] - kappa[k]) * exp(alphaC[k]) +
+			(1 - lower.cond.C[i,k] ) * (L.C[i] - kappa[k]) * exp(alphaC[k])
+		}
+
+	# Cumulative hazard function
+	lower.H.C[i] <- sum(lower.HH.C[i,1:lower.int.obs.C[i]])
+	}
+
+	for (i in (idxR.C+1):idxE.C) {
+		# Linear predictor
+		elinpred.C[i] <- exp(inprod(betaC[ ] , X.C[i,] ) + mu.C[i])
+		# hazard function
+		haz.C[i] <- exp(alphaC[lower.int.obs.C[i]]) * elinpred.C[i]
+		# survival function
+		lower.Surv.C[i] <- exp(-lower.H.C[i] * elinpred.C[i])
+		# Definition of the log-likelihood using zeros trick
+		#phi[i] <- 100000 - delta[i] * logHaz[i] - logSurv[i]
+		#phi.C[i] <- 100000000000000 - log(haz.C[i] * lower.Surv.C[i])
+		phi.C[i] <- haz.C[i] * lower.Surv.C[i]/100000000000
+		#zeros.C[i] ~ dpois(phi.C[i])
+		ones.C[i] ~ dbern(phi.C[i])
+
+	}	
+	
+
+	#Random Effect
+	for(i in 1 : n.C){
+		mu.C[i] ~ dnorm(0,nu)
+	}
+	nu ~ dgamma(0.01,0.01)
+	
+	for(i in 1 : n){
+	  mu[i] = mu.C[idxcluster[i]]
+	}
+	
+	## gammaC ~ dnorm(0,0.0001)
+
+#######################################################################################
+#Additional block of code using shrink prior.
+	tau_sa[1] ~ dgamma(0.01,0.01)
+
+	for(i in 1:p){
+		tau_sb[i] ~ dgamma(0.01,0.01)
+
+		mu_sb[i] ~ dnorm(0,0.0001)
+		beta[i] ~ dnorm(mu_sb[i],tau_sb[i])
+		betaC[i] ~ dnorm(mu_sb[i],tau_sb[i])
+	
+	}
+	
+	
+	mu_sa[1] ~ dnorm(0,0.0001)
+	alpha[1] ~ dnorm(mu_sa[1],tau_sa[1])
+	alphaC[1] ~ dnorm(mu_sa[1],tau_sa[1])
+
+	for(i in 2:nint){
+		mu_sa[i] ~ dnorm(0,0.0001)
+		tau_sa[i] ~ dgamma(0.01,0.01)
+		alpha[i] ~ dnorm(alpha[i-1],tau_sa[i])
+		alphaC[i] ~ dnorm(alphaC[i-1],tau_sa[i])
+
+		#alpha[i] ~ dnorm(mu_sa[i],tau_sa)
+		#alphaC[i] ~ dnorm(mu_sa[i],tau_sa)
+		
+	}
+ 	
+######################################################################################
+	
+	
+}
